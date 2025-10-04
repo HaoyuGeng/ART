@@ -1,0 +1,72 @@
+rm(list = ls())
+library(Matrix)
+library(pracma)
+
+source('mean_fun.R')
+
+
+#####welllog_data####
+well_log_data <- read.table('well_log_data_no_outliers.txt')
+#well_log_data <- read.table('well_log.txt')
+data_values <- well_log_data[,1]
+data_welllog <- data_values
+
+#####alpha=0.1######
+result_REACT <- main_react_cp_fun(data_welllog)
+result_nsp <- main_nsp_fun(data_welllog)
+result_rnsp <- main_rnsp_fun(data_welllog)
+
+
+# write.csv(result_REACT$interval_select_all,"REACT intervals_alpha0.1.csv")
+# write.csv(result_REACT$tau_hat_all,"REACT tauhat_alpha0.1.csv")
+# 
+# write.csv(result_nsp$interval_select_all,"NSP intervals_alpha0.1.csv")
+# write.csv(result_nsp$tau_hat_all,"NSP tauhat_alpha0.1.csv")
+
+# write.csv(result_rnsp$interval_select_all,"RNSP intervals_alpha0.1.csv")
+# write.csv(result_rnsp$tau_hat_all,"RNSP tauhat_alpha0.1.csv")
+
+# write.csv(result_REACT$interval_select_all,"REACT intervals_alpha0.05.csv")
+# write.csv(result_REACT$tau_hat_all,"REACT tauhat_alpha0.05.csv")
+# 
+# write.csv(result_nsp$interval_select_all,"NSP intervals_alpha0.05.csv")
+# write.csv(result_nsp$tau_hat_all,"NSP tauhat_alpha0.05.csv")
+
+write.csv(result_rnsp$interval_select_all,"RNSP intervals_alpha0.05.csv")
+write.csv(result_rnsp$tau_hat_all,"RNSP tauhat_alpha0.05.csv")
+
+
+result2016 <- c(445, 592, 1039, 1070, 1372, 1526, 1686, 1866, 2049, 2408, 2469, 2531, 2591, 2771, 3650, 3740, 3855)
+
+
+tau_hat_REACT <- sort(result_REACT$tau_hat_all)
+tau_hat_nsp <- sort(result_nsp$tau_hat_all)
+tau_hat_rnsp <- sort(result_rnsp$tau_hat_all)
+
+
+####
+correct_interval_num_fun(result_REACT$interval_select_all, result2016)
+correct_interval_num_fun(result_nsp$interval_select_all, result2016)
+correct_interval_num_fun(result_rnsp$interval_select_all, result2016)
+
+mean(length_correct_interval_fun(result_REACT$interval_select_all, result2016))
+mean(length_correct_interval_fun(result_nsp$interval_select_all, result2016))
+mean(length_correct_interval_fun(result_rnsp$interval_select_all, result2016))
+
+hausdorff_dist(sort(result_REACT$tau_hat_all),result2016)
+hausdorff_dist(sort(result_nsp$tau_hat_all),result2016)
+hausdorff_dist(sort(result_rnsp$tau_hat_all),result2016)
+
+
+
+
+
+# A <- read.csv("REACT tauhat_alpha0.05.csv")
+# A <- A[,-1]
+
+
+
+
+
+
+

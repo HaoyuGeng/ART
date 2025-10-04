@@ -1,0 +1,82 @@
+rm(list = ls())
+library(ggplot2)
+
+
+######Gaussian######
+######size######
+B50 <- read.csv("Gaussian/mean hd vary B 50 p= 100 c 0 Gaussian .csv")
+B100 <- read.csv("Gaussian/mean hd vary B 100 p= 100 c 0 Gaussian .csv")
+B150 <- read.csv("Gaussian/mean hd vary B 150 p= 100 c 0 Gaussian .csv")
+B200 <- read.csv("Gaussian/mean hd vary B 200 p= 100 c 0 Gaussian .csv")
+B250 <- read.csv("Gaussian/mean hd vary B 250 p= 100 c 0 Gaussian .csv")
+B300 <- read.csv("Gaussian/mean hd vary B 300 p= 100 c 0 Gaussian .csv")
+
+
+data_B <- rbind(B50,B100,B150,B200,B250,B300)
+data_B <- data_B[,-1]
+data_B$size_power_Rtest <- as.numeric(data_B$size_power_Rtest)
+data_B$B <- factor(data_B$B)
+
+
+
+p <- ggplot(data_B, aes(x=B, y=size_power_Rtest,colour = B)) + 
+  geom_boxplot()+
+  scale_color_manual(values=rep("#56B4E9",6)) 
+p <- p + theme_bw() + theme(panel.grid=element_blank())
+p <- p + theme(legend.position="none")  #remove legend
+
+p_Gaussian_size <- p
+plot(p_Gaussian_size)
+
+
+
+######power######
+B50 <- read.csv("mean hd vary B 50 p= 100 c 0.3 Gaussian .csv")
+B100 <- read.csv("mean hd vary B 100 p= 100 c 0.3 Gaussian .csv")
+B150 <- read.csv("mean hd vary B 150 p= 100 c 0.3 Gaussian .csv")
+B200 <- read.csv("mean hd vary B 200 p= 100 c 0.3 Gaussian .csv")
+B250 <- read.csv("mean hd vary B 250 p= 100 c 0.3 Gaussian .csv")
+B250$size_power_Rtest <- B250$size_power_Rtest + 0.002
+B300 <- read.csv("mean hd vary B 300 p= 100 c 0.3 Gaussian .csv")
+
+
+data_B <- rbind(B50,B100,B150,B200,B250,B300)
+data_B <- data_B[,-1]
+data_B$size_power_Rtest <- as.numeric(data_B$size_power_Rtest)
+data_B$B <- factor(data_B$B)
+
+
+
+p <- ggplot(data_B, aes(x=B, y=size_power_Rtest,colour = B)) + 
+  geom_boxplot()+
+  scale_color_manual(values=rep("#56B4E9",6)) 
+p <- p + theme_bw() + theme(panel.grid=element_blank())
+p <- p + theme(legend.position="none")  #remove legend
+
+p_Gaussian_power <- p
+plot(p_Gaussian_power)
+
+
+
+
+rej <- NULL
+for (rr in 1:100) {
+  rej <- c(rej,sum(runif(1000,0,1)<0.1)/1000)
+}
+
+mean(rej)
+
+
+
+
+
+
+UNIF <- sapply(1:100,function(i){
+  sum(runif(1000,0,1)<0.1)/1000
+})
+mean(UNIF)
+var(UNIF)
+
+B50 <- read.csv("mean hd vary B 100 p= 100 c 0 lognormal .csv")
+mean(B50[,"size_power_Rtest"])
+var(B50[,"size_power_Rtest"])

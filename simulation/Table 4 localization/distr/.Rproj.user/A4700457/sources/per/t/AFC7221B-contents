@@ -1,0 +1,46 @@
+######setting######
+library(MASS)
+library(glmnet)
+
+n=400
+p=10
+c=2
+
+
+tau_all0 = c(0, 0.3, 0.6, 1)*n
+
+
+# beta1 = rep(0,p)
+# beta1[1:10] = c(1,0,1,0,0,0,0,0,0,0) * 0.5
+# delta1 = rep(0,p)
+# delta1[1:10] = c(1,-1,1,-1,1,0,0,0,0,0) * c
+# beta2 = beta1 + delta1
+# delta2 = rep(0,p)
+# delta2[1:10] = c(-1, 1, -1,1,-1,0,0,0,0,0) * c
+# beta3 = beta2 + delta2
+# beta_all = cbind(beta1, beta2, beta3)
+
+
+beta1 = rep(0,p)
+beta1[1:5] = c(1,0,1,0,0) * 0.5
+delta1 = rep(0,p)
+delta1[1:5] = c(1,-1,1,-1,1) * c
+beta2 = beta1 + delta1
+delta2 = rep(0,p)
+delta2[1:5] = c(-1, 1, -1,1,-1) * c
+beta3 = beta2 + delta2
+beta_all = cbind(beta1, beta2, beta3)
+
+
+Sigma0 = matrix(0,p,p)
+rho = 0.3
+for (i_pos in 1:p) {
+  for (j_pos in 1:p) {
+    Sigma0[i_pos,j_pos] = rho^(abs(i_pos-j_pos))
+  }
+}
+
+
+
+
+

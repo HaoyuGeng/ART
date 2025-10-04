@@ -1,0 +1,127 @@
+#####exact test#####
+rm(list = ls())
+library(foreach)
+library(doParallel)
+library(Matrix)
+library(CPAT)
+library(DMS)
+
+cl <- makeCluster(8) #do parallel
+registerDoParallel(cl)
+
+# n1_can <- c(10,20,30,40,50,60,70,80) #c(20,40,60,80,100) #c(200)6
+# n2_can <- c(10,20,30,40,50,60,70,80) #c(20,40,60,80,100) #c(600)
+
+n_can <-  c(100,150,200,250,300) #c(40,80,120,160,200)     
+n1_can <- n_can*0.5
+n2_can <- n_can*0.5
+c_can <- c(0)  #c(0.2, 0.25, 0.3, 0.35, 0.4)          
+result_size_Power <- NULL
+#error_type_can <- c("Gaussian","t","Cauchy","lognormal")
+error_type_can <- c("Gaussian")
+
+#####R-test####
+for (kk in 1:length(error_type_can)) {
+    error_type = error_type_can[kk]
+    result_size_Power <- NULL
+
+ for (cc in 1:length(c_can)) {
+   c <- c_can[cc]
+
+  for (k in 1:length(n1_can)) {
+    n1 <- n1_can[k]
+    n2 <- n2_can[k]
+    #p=50 #50 #100 #200
+
+    alpha0=0.1
+    rep_num = 500
+
+    #mean model
+    source("mean_model_hd.R")
+    source("mean_fun_hd.R")
+    # #main R-test
+    # RES <- foreach(i=1:rep_num,.combine = "rbind") %dopar%
+    #   tryCatch({ main_mean_fun(i, alpha0, error_type)},
+    #            error=function(e) return(paste("sample",i,"caused the error")))
+    # p_value <- foreach(i=1:rep_num,.combine = "rbind")%dopar%
+    #   if(is.numeric(RES[i,]$p_value)){RES[i,]$p_value}
+    # rejection <- foreach(i=1:rep_num,.combine = "rbind")%dopar%
+    #   if(is.numeric(RES[i,]$rejection)){RES[i,]$rejection}
+    # size_power_Rtest <- colMeans(rejection)
+    # print(size_power_Rtest)
+
+    # #main DMS(0)
+    # RES <- foreach(i=1:rep_num,.combine = "rbind") %dopar%
+    #   tryCatch({main_mean_DMS1(i, alpha0, error_type)},
+    #     error=function(e) return(paste("sample",i,"caused the error")))
+    # p_value <- foreach(i=1:rep_num,.combine = "rbind")%dopar%
+    #   if(is.numeric(RES[i,]$p_value)){RES[i,]$p_value}
+    # rejection <- foreach(i=1:rep_num,.combine = "rbind")%dopar%
+    #   if(is.numeric(RES[i,]$rejection)){RES[i,]$rejection}
+    # size_power_DMS1 <- colMeans(rejection)
+    # print(size_power_DMS1)
+    # #main DMS(0.5)
+    # RES <- foreach(i=1:rep_num,.combine = "rbind") %dopar%
+    #   tryCatch({main_mean_DMS2(i, alpha0, error_type)},
+    #            error=function(e) return(paste("sample",i,"caused the error")))
+    # p_value <- foreach(i=1:rep_num,.combine = "rbind")%dopar%
+    #   if(is.numeric(RES[i,]$p_value)){RES[i,]$p_value}
+    # rejection <- foreach(i=1:rep_num,.combine = "rbind")%dopar%
+    #   if(is.numeric(RES[i,]$rejection)){RES[i,]$rejection}
+    # size_power_DMS2 <- colMeans(rejection)
+    # print(size_power_DMS2)
+    # #main LZZL
+    # RES <- foreach(i=1:rep_num,.combine = "rbind") %dopar%
+    #   tryCatch({main_mean_LZZL(i, alpha0, error_type)},
+    #            error=function(e) return(paste("sample",i,"caused the error")))
+    # p_value <- foreach(i=1:rep_num,.combine = "rbind")%dopar%
+    #   if(is.numeric(RES[i,]$p_value)){RES[i,]$p_value}
+    # rejection <- foreach(i=1:rep_num,.combine = "rbind")%dopar%
+    #   if(is.numeric(RES[i,]$rejection)){RES[i,]$rejection}
+    # size_power_LZZL <- colMeans(rejection)
+    # print(size_power_LZZL)
+    #main YC
+    RES <- foreach(i=1:rep_num,.combine = "rbind") %dopar%
+      tryCatch({main_mean_YC(i, alpha0, error_type)},
+               error=function(e) return(paste("sample",i,"caused the error")))
+    p_value <- foreach(i=1:rep_num,.combine = "rbind")%dopar%
+      if(is.numeric(RES[i,]$p_value)){RES[i,]$p_value}
+    rejection <- foreach(i=1:rep_num,.combine = "rbind")%dopar%
+      if(is.numeric(RES[i,]$rejection)){RES[i,]$rejection}
+    size_power_YC <- colMeans(rejection)
+    print(size_power_YC)
+    # #main WZWY
+    # RES <- foreach(i=1:rep_num,.combine = "rbind") %dopar%
+    #   tryCatch({main_mean_WZWY(i, alpha0, error_type)},
+    #            error=function(e) return(paste("sample",i,"caused the error")))
+    # p_value <- foreach(i=1:rep_num,.combine = "rbind")%dopar%
+    #   if(is.numeric(RES[i,]$p_value)){RES[i,]$p_value}
+    # rejection <- foreach(i=1:rep_num,.combine = "rbind")%dopar%
+    #   if(is.numeric(RES[i,]$rejection)){RES[i,]$rejection}
+    # size_power_WZWY <- colMeans(rejection)
+    # print(size_power_WZWY)
+    
+    # print("Finish")
+    # Method = c('R-test','DMS(0)','LZZL', 'WZWY')
+    # size_power = c(size_power_Rtest, size_power_DMS1, size_power_LZZL,size_power_WZWY )
+    # result_size_Power.k <- cbind(Method=Method, n=rep(n1+n2,5), p=rep(p,5), c=rep(c,5), error_type=rep(error_type,5), size_power=size_power)
+    # result_size_Power <- rbind(result_size_Power,result_size_Power.k)
+  }
+ }
+    # file_name <- paste("mean hd","vary n", "p=", p, 'c',c, error_type, ".csv")
+    # write.csv(result_size_Power,file_name)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+

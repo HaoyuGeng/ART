@@ -1,0 +1,401 @@
+#####functions#####
+####high dimension mean####
+#rank mean
+###dimensionality reduction 
+main_mean_fun <- function(i, alpha0, error_type){
+  library(MASS)
+  library(glmnet)
+  library(InspectChangepoint)
+  
+  #data generation
+  set.seed(202408001+8*i)
+  if(error_type=="Gaussian"){
+    error1 <- mvrnorm(n1, rep(0,p), Sigma_error)
+    error2 <- mvrnorm(n2, rep(0,p), Sigma_error)
+  }else if(error_type=="Cauchy"){
+    error1 <- matrix( rcauchy(n1*p,0,1/5), n1,p)
+    error2 <- matrix( rcauchy(n2*p,0,1/5), n2,p)  
+  }else if(error_type=="t"){
+    error1 <- matrix( rt(n1*p,3)/sqrt(3), n1, p)
+    error2 <- matrix( rt(n2*p,3)/sqrt(3), n2, p)
+    # error1 <- matrix( rt(n1*p,6)/sqrt(3), n1, p)
+    # error2 <- matrix( rt(n2*p,6)/sqrt(3), n2, p)
+  }else if(error_type=="lognormal"){   #mean 0
+    error1 <- matrix( rlnorm(n1*p,0,1/10), n1, p) - 1
+    error2 <- matrix( rlnorm(n2*p,0,1/10), n2, p) - 1
+  }
+  error1 <- t(error1) #p x n
+  error2 <- t(error2)
+  
+  y1 <- mu0 + error1
+  y2 <- mu1 + error2
+  y <- cbind(y1,y2) 
+  n <- n1+n2
+  
+  # ###---reduce dimension---
+  # #1.reduce dimension by y_bar
+  # #2.reduce dimension by mean(abs(y-y_bar))
+  # y_bar <- rowMeans(y)
+  # y_prime <- abs(y-y_bar)
+  # y_prime_bar <- rowMeans(y_prime)
+  # select_var_thre <- sort(y_prime_bar,decreasing = T)[5]
+  # select_var <- which(y_prime_bar>=select_var_thre)
+  # #update y
+  # y <- y[select_var,]  #p0 x n
+  
+  ###---reduce dimension---
+  #1.reduce dimension by y_bar
+  #2.reduce dimension by mean(abs(y-y_bar))
+  y_bar <- rowMeans(y)
+  select_var_thre <- sort(abs(y_bar),decreasing = T)[5]
+  select_var <- which(abs(y_bar)>=select_var_thre)
+  #update y
+  y <- y[select_var,]  #p0 x n
+
+  
+  # ###---reduce dimension by y[1:5] - y[(n-5):n]
+  # y_prime <- abs(rowMeans(y[,1:2]) - rowMeans(y[,(n-1):n]))
+  # select_var_thre <- sort(y_prime,decreasing = T)[5] 
+  # select_var <- which(y_prime>=select_var_thre)
+  # y <- y[select_var,]  #p0 x n
+  
+  
+  ###---kmeans---
+  mu_kmeans <- function(y, mu1_initial=NULL, mu2_initial=NULL){
+    # y: n x p
+    mu_update <- function(y,mu1_k,mu2_k){
+      #kth clustering
+      gi <- -(( rowSums((y - mu1_k)^2) <= rowSums((y - mu2_k)^2)) - 2)
+      #gi <- -(( rowSums(abs(y - mu1_k)) <= rowSums(abs(y - mu2_k))) - 2)
+      
+      #update mu
+      index_1 <- which(gi==1)
+      index_2 <- which(gi==2)
+      mu1_update <- colMeans(y[index_1,])
+      mu2_update <- colMeans(y[index_2,])
+      
+      result <- list(mu1_update = mu1_update, mu2_update = mu2_update, gi=gi)
+      return(result)
+    }
+    
+    n <- dim(y)[1]
+    mu1_initial <- y[1,]
+    mu2_initial <- y[n,]
+    
+    # mu1_initial <- colMeans(y[1:5,])
+    # mu2_initial <- colMeans(y[(n-5):n,])
+    
+    #update mu estimator
+    iter_num = 20
+    iter_rho = 0.1
+    for (kk in 1:iter_num) {
+      if(kk==1){
+        mu1_new = mu1_initial
+        mu2_new = mu2_initial
+        mu_result <- mu_update(y,mu1_new,mu2_new)
+        mu1_old <- mu1_new
+        mu2_old <- mu2_new
+        mu1_new = mu_result$mu1_update
+        mu2_new = mu_result$mu2_update
+      }
+      else{
+        mu_result <- mu_update(y,mu1_new,mu2_new)
+        mu1_old <- mu1_new
+        mu2_old <- mu2_new
+        mu1_new = mu_result$mu1_update
+        mu2_new = mu_result$mu2_update
+        if((norm(as.matrix(as.numeric(mu1_new - mu1_old)),"F")/(norm(as.matrix(mu1_old),"F")) < iter_rho) && 
+           (norm(as.matrix(as.numeric(mu2_new - mu2_old)),"F")/(norm(as.matrix(mu2_old),"F")) < iter_rho) ){
+          #print(kk)
+          break
+        }
+      }
+    }
+    
+    gi <- mu_result$gi
+    return(gi)
+  }
+  kmeans_result <- mu_kmeans(t(y), mu1_initial = y[,1], mu2_initial = y[,n])
+  #kmeans_result <- mu_kmeans(t(y), mu1_initial = rep(0,p), mu2_initial = rowMeans(y[,(n-2):n]))
+  
+  ###---score ---
+  score <- kmeans_result 
+  rank_score <- rank(score,ties.method = "random")
+  Sn <- max(
+    sapply((0.2*n):(0.8*n), function(i){
+      abs( mean(rank_score[1:i]) - mean(rank_score[(i+1):n]) )
+    })
+  )
+  
+  ###---threshold for rejection---
+  B=500
+  Sn_B <- rep(0,B)
+  for (bb in 1:B) {
+    rank_bb <- rank(runif(n,0,1), ties.method = "random")
+    Sn_bb <- max(
+      sapply((0.2*n):(0.8*n), function(i){
+        abs( mean(rank_bb[1:i]) - mean(rank_bb[(i+1):n]) )
+      })
+    )
+    Sn_B[bb] <- Sn_bb
+  }
+  
+  p_value <- (sum(Sn < Sn_B) + runif(1,0,1) * (sum((Sn == Sn_B)+0)+1) ) / (B+1)
+  
+  if(p_value < alpha0){
+    rejection <- 1
+  }else{
+    rejection <- 0
+  }
+  
+  result_list <- list(p_value = p_value, rejection = rejection)
+  return(result_list)
+}
+#DMS(0)
+main_mean_DMS1 <- function(i, alpha0, error_type){
+  library(MASS)
+  library(glmnet)
+  library(InspectChangepoint)
+  library(DMS)
+  
+  #data generation
+  set.seed(20240208+8*i)
+  if(error_type=="Gaussian"){
+    error1 <- mvrnorm(n1, rep(0,p), Sigma_error)
+    error2 <- mvrnorm(n1, rep(0,p), Sigma_error)
+  }else if(error_type=="Cauchy"){
+    error1 <- matrix( rcauchy(n1*p,0,1/3), n1,p)
+    error2 <- matrix( rcauchy(n2*p,0,1/3), n2,p)
+  }else if(error_type=="t"){
+    error1 <- matrix( rt(n1*p,3)/sqrt(3), n1, p)
+    error2 <- matrix( rt(n2*p,3)/sqrt(3), n2, p)
+  }else if(error_type=="lognormal"){
+    error1 <- matrix( rlnorm(n1*p,0,1/10), n1, p) -1
+    error2 <- matrix( rlnorm(n2*p,0,1/10), n2, p) -1
+  }
+  y1 <- mu0 + t(error1)
+  y2 <- mu1 + t(error2)
+  y <- cbind(y1,y2)
+  y <- t(y)
+  n <- n1+n2
+  
+  
+  p_value <- DMS(y)$pv.DMS
+  
+  if(p_value < alpha0){
+    rejection <- 1
+  }else{
+    rejection <- 0
+  }
+  
+  result_list <- list(p_value = p_value, rejection = rejection)
+  return(result_list)
+}
+#DMS(0.5)
+main_mean_DMS2 <- function(i, alpha0, error_type){
+  library(MASS)
+  library(glmnet)
+  library(InspectChangepoint)
+  library(DMS)
+  
+  #data generation
+  set.seed(20240208+8*i)
+  if(error_type=="Gaussian"){
+    error1 <- mvrnorm(n1, rep(0,p), Sigma_error)
+    error2 <- mvrnorm(n1, rep(0,p), Sigma_error)
+  }else if(error_type=="Cauchy"){
+    # error1 <- matrix( rcauchy(n1*p,0,1/5), n1,p)
+    # error2 <- matrix( rcauchy(n2*p,0,1/5), n2,p)  
+    error1 <- matrix( rt(n1*p,6)/sqrt(3), n1, p)
+    error2 <- matrix( rt(n2*p,6)/sqrt(3), n2, p)
+  }else if(error_type=="t"){
+    error1 <- matrix( rt(n1*p,3)/sqrt(3), n1, p)
+    error2 <- matrix( rt(n2*p,3)/sqrt(3), n2, p)
+  }else if(error_type=="lognormal"){
+    error1 <- matrix( rlnorm(n1*p,0,1/10), n1, p) - 1
+    error2 <- matrix( rlnorm(n1*p,0,1/10), n2, p) - 1
+  }
+  y1 <- mu0 + t(error1)
+  y2 <- mu1 + t(error2)
+  y <- cbind(y1,y2)
+  y <- t(y)
+  n <- n1+n2
+  
+  p_value <- DMS(y,gam=0.5,lam = 20)$pv.DMS
+  
+  if(p_value < alpha0){
+    rejection <- 1
+  }else{
+    rejection <- 0
+  }
+  
+  result_list <- list(p_value = p_value, rejection = rejection)
+  return(result_list)
+}
+#LZZL
+main_mean_LZZL <- function(i, alpha0, error_type){
+  library(MASS)
+  library(glmnet)
+  library(InspectChangepoint)
+  library(DMS)
+  
+  #data generation
+  #set.seed(20240208+8*i)
+  if(error_type=="Gaussian"){
+    error1 <- mvrnorm(n1, rep(0,p), Sigma_error)
+    error2 <- mvrnorm(n1, rep(0,p), Sigma_error)
+  }else if(error_type=="Cauchy"){
+    # error1 <- matrix( rcauchy(n1*p,0,1/5), n1,p)
+    # error2 <- matrix( rcauchy(n2*p,0,1/5), n2,p)  
+    error1 <- matrix( rt(n1*p,6)/sqrt(3), n1, p)
+    error2 <- matrix( rt(n2*p,6)/sqrt(3), n2, p)
+  }else if(error_type=="t"){
+    error1 <- matrix( rt(n1*p,3)/sqrt(3), n1, p)
+    error2 <- matrix( rt(n2*p,3)/sqrt(3), n2, p)
+  }else if(error_type=="lognormal"){
+    error1 <- matrix( rlnorm(n1*p,0,1/10), n1, p) - 1
+    error2 <- matrix( rlnorm(n2*p,0,1/10), n2, p) - 1
+  }
+  y1 <- mu0 + t(error1)
+  y2 <- mu1 + t(error2)
+  y <- cbind(y1,y2)
+  y <- t(y)
+  n <- n1+n2
+  
+  
+  p_value <- LZZL20(y)$pv
+  
+  if(p_value < alpha0){
+    rejection <- 1
+  }else{
+    rejection <- 0
+  }
+  
+  result_list <- list(p_value = p_value, rejection = rejection)
+  return(result_list)
+}
+#ZWS
+main_mean_ZWS <- function(i, alpha0, error_type){
+  library(MASS)
+  library(glmnet)
+  library(InspectChangepoint)
+  library(DMS)
+  
+  #data generation
+  set.seed(20240208+8*i)
+  if(error_type=="Gaussian"){
+    error1 <- mvrnorm(n1, rep(0,p), Sigma_error)
+    error2 <- mvrnorm(n1, rep(0,p), Sigma_error)
+  }else if(error_type=="Cauchy"){
+    # error1 <- matrix( rcauchy(n1*p,0,1/5), n1,p)
+    # error2 <- matrix( rcauchy(n2*p,0,1/5), n2,p)  
+    error1 <- matrix( rt(n1*p,6)/sqrt(3), n1, p)
+    error2 <- matrix( rt(n2*p,6)/sqrt(3), n2, p)
+  }else if(error_type=="t"){
+    error1 <- matrix( rt(n1*p,3)/sqrt(3), n1, p)
+    error2 <- matrix( rt(n2*p,3)/sqrt(3), n2, p)
+  }else if(error_type=="lognormal"){
+    error1 <- matrix( rlnorm(n1*p,0,1/10), n1, p) -1
+    error2 <- matrix( rlnorm(n2*p,0,1/10), n2, p) -1
+  }
+  y1 <- mu0 + t(error1)
+  y2 <- mu1 + t(error2)
+  y <- cbind(y1,y2)
+  y <- t(y)
+  n <- n1+n2
+  
+  
+  p_value <- ZWS22(y)
+
+  if(p_value < alpha0){
+    rejection <- 1
+  }else{
+    rejection <- 0
+  }
+  
+  result_list <- list(p_value = p_value, rejection = rejection)
+  return(result_list)
+}
+#YC21
+main_mean_YC <- function(i, alpha0, error_type){
+  library(MASS)
+  library(glmnet)
+  library(InspectChangepoint)
+  library(DMS)
+  
+  #data generation
+  set.seed(20240208+8*i)
+  if(error_type=="Gaussian"){
+    error1 <- mvrnorm(n1, rep(0,p), Sigma_error)
+    error2 <- mvrnorm(n1, rep(0,p), Sigma_error)
+  }else if(error_type=="Cauchy"){
+    # error1 <- matrix( rcauchy(n1*p,0,1/5), n1,p)
+    # error2 <- matrix( rcauchy(n2*p,0,1/5), n2,p) 
+    error1 <- matrix( rt(n1*p,6)/sqrt(3), n1, p)
+    error2 <- matrix( rt(n2*p,6)/sqrt(3), n2, p)
+  }else if(error_type=="t"){
+    error1 <- matrix( rt(n1*p,3)/sqrt(3), n1, p)
+    error2 <- matrix( rt(n2*p,3)/sqrt(3), n2, p)
+  }else if(error_type=="lognormal"){
+    error1 <- matrix( rlnorm(n1*p,0,1/10), n1, p) -1
+    error2 <- matrix( rlnorm(n2*p,0,1/10), n2, p) -1
+  }
+  y1 <- mu0 + t(error1)
+  y2 <- mu1 + t(error2)
+  y <- cbind(y1,y2)
+  y <- t(y)
+  n <- n1+n2
+  
+  p_value <- YC21(y)$pv
+
+  if(p_value < alpha0){
+    rejection <- 1
+  }else{
+    rejection <- 0
+  }
+  
+  result_list <- list(p_value = p_value, rejection = rejection)
+  return(result_list)
+}
+#WZWY
+main_mean_WZWY <- function(i, alpha0, error_type){
+  library(MASS)
+  library(glmnet)
+  library(InspectChangepoint)
+  library(DMS)
+  
+  #data generation
+  set.seed(20240208+8*i)
+  if(error_type=="Gaussian"){
+    error1 <- mvrnorm(n1, rep(0,p), Sigma_error)
+    error2 <- mvrnorm(n1, rep(0,p), Sigma_error)
+  }else if(error_type=="Cauchy"){
+    # error1 <- matrix( rcauchy(n1*p,0,1/5), n1,p)
+    # error2 <- matrix( rcauchy(n2*p,0,1/5), n2,p)  
+    error1 <- matrix( rt(n1*p,6)/sqrt(3), n1, p)
+    error2 <- matrix( rt(n2*p,6)/sqrt(3), n2, p)
+  }else if(error_type=="t"){
+    error1 <- matrix( rt(n1*p,3)/sqrt(3), n1, p)
+    error2 <- matrix( rt(n2*p,3)/sqrt(3), n2, p)
+  }else if(error_type=="lognormal"){
+    error1 <- matrix( rlnorm(n1*p,0,1/10), n1, p) -1
+    error2 <- matrix( rlnorm(n2*p,0,1/10), n2, p) -1
+  }
+  y1 <- mu0 + t(error1)
+  y2 <- mu1 + t(error2)
+  y <- cbind(y1,y2)
+  y <- t(y)
+  n <- n1+n2
+  
+  p_value <- WZWY19(y)$pv
+  
+  if(p_value < alpha0){
+    rejection <- 1
+  }else{
+    rejection <- 0
+  }
+  
+  result_list <- list(p_value = p_value, rejection = rejection)
+  return(result_list)
+}
+

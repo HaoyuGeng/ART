@@ -1,0 +1,8 @@
+plot(c(rnorm(220,0),
+       rnorm(140,-10),
+       rnorm(140,10),
+       rnorm(240,0)),
+     type = "p",    # 画点
+     pch = 16,      # 实心圆点
+     cex = 0.5,
+     col = gray(0.4)) # 可以改颜色

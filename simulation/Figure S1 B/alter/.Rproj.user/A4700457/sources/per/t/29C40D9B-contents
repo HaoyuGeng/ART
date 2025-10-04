@@ -1,0 +1,71 @@
+#####exact test#####
+rm(list = ls())
+library(foreach)
+library(doParallel)
+library(Matrix)
+library(CPAT)
+
+cl <- makeCluster(10) #do parallel
+registerDoParallel(cl)
+
+n <-  200   
+n1 <- n*0.4
+n2 <- n*0.6
+c <- 0 #c(0,0.3,0.6)          
+result_size_Power <- NULL
+error_type_can <- c("Gaussian","t","lognormal")
+#error_type_can <- c("t")
+
+#####R-test####
+for (kk in 1:length(error_type_can)) {
+    error_type = error_type_can[kk]
+
+    alpha0=0.1
+    rep_num = 1000
+    B_can <- c(100,150,200,250,300)
+    
+  for(bb in 1:length(B_can)){
+    B <- B_can[bb]
+    result_size_Power <- NULL
+    
+    for (rep_box in 1:100) {
+    
+        #mean model
+        source("mean_model_hd.R")
+        source("mean_fun_hd.R")
+        
+        print(paste("rep times=",rep_box,"error_type=",error_type, "n=",n,"p=",p,"c=",c))
+        
+        #main R-test
+        RES <- foreach(i=1:rep_num,.combine = "rbind") %dopar%
+          tryCatch({ main_mean_fun(i, alpha0, error_type)},
+                   error=function(e) return(paste("sample",i,"caused the error")))
+        p_value <- foreach(i=1:rep_num,.combine = "rbind")%dopar%
+          if(is.numeric(RES[i,]$p_value)){RES[i,]$p_value}
+        print(length(p_value))
+        rejection <- foreach(i=1:rep_num,.combine = "rbind")%dopar%
+          if(is.numeric(RES[i,]$rejection)){RES[i,]$rejection}
+        size_power_Rtest <- colMeans(rejection)
+        size_power_Rtest <- data.frame(B=B,size_power_Rtest=size_power_Rtest, Error= error_type)
+        print(size_power_Rtest)
+        
+        result_size_Power <- rbind(result_size_Power, size_power_Rtest)
+        file_name <- paste("mean hd","vary B", B, "p=", p, 'c',c, error_type, ".csv")
+        write.csv(result_size_Power,file_name)
+    }
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,32 @@
+import os
+import sys
+import geopandas as gpd
+import pandas as pd
+import pyarrow.parquet as pq
+import pickle as pkl
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib import colors
+import sys, os
+from datetime import datetime
+
+# sys.path.insert(0, "./code/py")
+# sys.path.insert(0, "./data")
+# sys.path.insert(0, "./output")
+
+from misc_heatmaps import generate_df_from_record, generate_daily_heatmaps_from_df
+
+nyc_map = gpd.read_file("taxi_zones.zip")
+
+for file_ in os.listdir('raw_records'):
+    print(file_)
+    df = pq.read_table("raw_records/" + file_)
+    dat = pd.DataFrame()
+    dat['DOlocationID'] = df['DOlocationID'].to_pandas()
+    dat['pickup_datetime'] = df['pickup_datetime'].to_pandas()
+    del df
+    df = generate_df_from_record(dat)
+    generate_daily_heatmaps_from_df(df, nyc_map, "daily_heatmaps")
+
+
+

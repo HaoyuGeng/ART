@@ -1,0 +1,43 @@
+rm(list = ls())
+library(changepoint.influence)
+source('fun.R')
+set.seed(20250101)
+data("welldata")
+data_welllog <- data_process(welldata)
+
+
+#####alpha=0.1######
+##ART##
+start_time <- Sys.time()
+result_ART <- main_ART_cp_fun(data_welllog)
+end_time <- Sys.time()
+elapsed <- as.numeric(difftime(end_time, start_time, units = "mins"))
+cat("ART time:", round(elapsed, 2), "mins\n")
+
+# write.csv(result_ART$interval_select_all, "ART intervals alpha=0.1.csv")
+# write.csv(result_ART$tau_hat_all, "ART tauhat alpha=0.1.csv")
+
+
+##NSP##
+start_time <- Sys.time()
+result_nsp <- main_nsp_fun(data_welllog)
+end_time <- Sys.time()
+elapsed <- as.numeric(difftime(end_time, start_time, units = "mins"))
+cat("NSP time:", round(elapsed, 2), "mins\n")
+
+# write.csv(result_nsp$interval_select_all, "NSP intervals alpha=0.1.csv")
+# write.csv(result_nsp$tau_hat_all, "NSP tauhat alpha=0.1.csv")
+
+
+##RNSP##
+start_time <- Sys.time()
+result_rnsp <- main_rnsp_fun(data_welllog)
+end_time <- Sys.time()
+elapsed <- as.numeric(difftime(end_time, start_time, units = "mins"))
+cat("RNSP time:", round(elapsed, 2), "mins\n")
+
+# write.csv(result_rnsp$interval_select_all, "RNSP intervals alpha=0.1.csv")
+# write.csv(result_rnsp$tau_hat_all, "RNSP tauhat alpha=0.1.csv")
+
+
+

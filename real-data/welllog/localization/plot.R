@@ -1,0 +1,205 @@
+rm(list = ls())
+library(ggplot2)
+library(ggpubr)
+library(reshape2)
+library(changepoint.influence)
+data("welldata")
+source("fun.R")
+
+title_size <- 19
+legend_size <- 17
+
+#####plot######
+data_values <- data_process(welldata)
+data_welllog <- data.frame(Time = c(1:length(data_values)), Values = data_values/10^5)
+
+mean_compute_fun <- function(data, cp){
+  cp <- c(0,cp,length(data))
+  all_means <- NULL
+  for (i in 2:length(cp)) {
+    data_i <- data[(cp[i-1]+1):cp[i]]
+    mean_values <- median(data_i[which(data_i!=0)])
+    all_means <- c(all_means, rep(mean_values, cp[i]-cp[i-1]))
+  }
+  return(all_means)
+}
+
+resultART <- read.csv("ART tauhat alpha=0.1.csv")
+resultART <- resultART[,-1]
+resultART <- sort(resultART)
+
+
+data_phase_mean <- mean_compute_fun(data_values,resultART)
+data_welllog <- cbind(data_welllog, Means = data_phase_mean/10^5)
+
+data_welllog <- melt(data_welllog, id.vars = c('Time'), variable.name = 'Values_Means', value.name = 'value') #melt real data value and mean of each phase
+data_welllog$Values_Means <- factor(data_welllog$Values_Means)
+
+plot_ART <- ggplot(data = data_welllog[which(data_welllog$value != 0),], 
+                     mapping = aes(x = Time, y = value, color = Values_Means, size = Values_Means)) + 
+  geom_point(size = 0.5) +
+  scale_color_manual(values = c('#666666', '#FF6600'), 
+                     breaks = c('Values', "Means"), 
+                     labels = c("well-log data", "result by ART")) +
+  scale_y_continuous(breaks = c(0.8, 1.0, 1.2, 1.4, 1.6), limits = c(0.85, 1.4)) +
+  guides(color = guide_legend(override.aes = list(size = 3))) +  
+  labs(x = "Time", y = expression(paste("Nuclear Response ", (x10^5))), title = "ART") +
+ 
+  theme_bw() + 
+  theme(panel.grid = element_blank(),
+        legend.position = c(0.83, 0.81),  
+        legend.background = element_rect(color = "black", size = 0.5),
+        legend.key.size = unit(30, "pt"), 
+        legend.key.height = unit(20, "pt"), 
+        legend.spacing.y = unit(3, "pt"), 
+        legend.title = element_blank(),
+        legend.text = element_text(size = legend_size),
+        axis.title.x = element_text(size = title_size),
+        axis.title.y = element_text(size = 14),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 12),
+        plot.title = element_text(size=15)) +
+  geom_vline(xintercept = resultART, linetype = "dashed", color = '#FF6600') 
+print(plot_ART)
+
+
+
+
+
+
+#####plot nsp######
+data_welllog <- data.frame(Time = c(1:length(data_values)), Values = data_values/10^5)
+
+mean_compute_fun <- function(data, cp){
+  cp <- c(0,cp,length(data)) 
+  all_means <- NULL
+  for (i in 2:length(cp)) {
+    data_i <- data[(cp[i-1]+1):cp[i]]
+    mean_values <- mean(data_i[which(data_i!=0)])
+    all_means <- c(all_means, rep(mean_values, cp[i]-cp[i-1]))
+  }
+  return(all_means)
+}
+
+resultNSP <- read.csv("NSP tauhat alpha=0.1.csv")
+resultNSP <- resultNSP[,-1]
+resultNSP <- sort(resultNSP)
+
+
+data_phase_mean <- mean_compute_fun(data_values,resultNSP)
+data_welllog <- cbind(data_welllog, Means = data_phase_mean/10^5)
+
+data_welllog <- melt(data_welllog, id.vars = c('Time'), variable.name = 'Values_Means', value.name = 'value') #melt real data value and mean of each phase
+data_welllog$Values_Means <- factor(data_welllog$Values_Means)
+
+plot_NSP <- ggplot(data = data_welllog[which(data_welllog$value != 0),], 
+                   mapping = aes(x = Time, y = value, color = Values_Means, size = Values_Means)) + 
+  geom_point(size = 0.5) +
+  scale_color_manual(values = c('#666666', '#66CC99'), 
+                     breaks = c('Values', "Means"), 
+                     labels = c("well-log data", "result by NSP    ")) +
+  scale_y_continuous(breaks = c(0.8, 1.0, 1.2, 1.4, 1.6), limits = c(0.85, 1.4)) +
+  guides(color = guide_legend(override.aes = list(size = 3))) +  
+  labs(x = "Time", y = expression(paste("Nuclear Response ", (x10^5))), title = "NSP") +
+  theme_bw() + 
+  theme(panel.grid = element_blank(),
+        legend.position = c(0.83, 0.81),  
+        legend.background = element_rect(color = "black", size = 0.5),
+        legend.key.size = unit(30, "pt"), 
+        legend.key.height = unit(20, "pt"), 
+        legend.spacing.y = unit(3, "pt"), 
+        legend.title = element_blank(),
+        legend.text = element_text(size = legend_size),
+        axis.title.x = element_text(size = title_size),
+        axis.title.y = element_text(size = 14),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 12),
+        plot.title = element_text(size=15)) +
+  geom_vline(xintercept = resultNSP, linetype = "dashed", color = "#66CC99") 
+print(plot_NSP)
+
+
+
+
+
+#####plot rnsp######
+data_welllog <- data.frame(Time = c(1:length(data_values)), Values = data_values/10^5)
+
+mean_compute_fun <- function(data, cp){
+  cp <- c(0,cp,length(data))
+  all_means <- NULL
+  for (i in 2:length(cp)) {
+    data_i <- data[(cp[i-1]+1):cp[i]]
+    mean_values <- mean(data_i[which(data_i!=0)])
+    all_means <- c(all_means, rep(mean_values, cp[i]-cp[i-1]))
+  }
+  return(all_means)
+}
+
+resultRNSP <- read.csv("RNSP tauhat alpha=0.1.csv")
+resultRNSP <- resultRNSP[,-1]
+resultRNSP <- sort(resultRNSP)
+
+
+data_phase_mean <- mean_compute_fun(data_values,resultRNSP)
+data_welllog <- cbind(data_welllog, Means = data_phase_mean/10^5)
+
+data_welllog <- melt(data_welllog, id.vars = c('Time'), variable.name = 'Values_Means', value.name = 'value') #melt real data value and mean of each phase
+data_welllog$Values_Means <- factor(data_welllog$Values_Means)
+
+plot_RNSP <- ggplot(data = data_welllog[which(data_welllog$value != 0),], 
+                   mapping = aes(x = Time, y = value, color = Values_Means, size = Values_Means)) + 
+  geom_point(size = 0.5) +
+  scale_color_manual(values = c('#666666', '#3399FF'), 
+                     breaks = c('Values', "Means"), 
+                     labels = c("well-log data", "result by RNSP    ")) +
+  scale_y_continuous(breaks = c(0.8, 1.0, 1.2, 1.4, 1.6), limits = c(0.85, 1.4)) +
+  guides(color = guide_legend(override.aes = list(size = 3))) +  # 增加图例点的大小
+  labs(x = "Time", y = expression(paste("Nuclear Response ", (x10^5))), title = "RNSP") +
+  theme_bw() + 
+  theme(panel.grid = element_blank(),
+        legend.position = c(0.83, 0.81),  
+        legend.background = element_rect(color = "black", size = 0.5),
+        legend.key.size = unit(30, "pt"), 
+        legend.key.height = unit(20, "pt"), 
+        legend.spacing.y = unit(3, "pt"), 
+        legend.title = element_blank(),
+        legend.text = element_text(size = legend_size),
+        axis.title.x = element_text(size = title_size),
+        axis.title.y = element_text(size = 14),
+        axis.text.x = element_text(size = 12),
+        axis.text.y = element_text(size = 12),
+        plot.title = element_text(size=15)) +
+  geom_vline(xintercept = resultRNSP, linetype = "dashed", color = "#3399FF") 
+print(plot_RNSP)
+
+
+
+
+
+
+welllog_plot_all <- ggarrange(plot_ART+ rremove('xlab') + rremove("legend"),
+                              plot_NSP + rremove("xlab") + rremove("legend"), 
+                              plot_RNSP + rremove("legend") ,
+                              nrow = 3, heights = c(0.95,1,1) ) 
+plot(welllog_plot_all)
+
+
+
+# 
+# setEPS()
+# postscript("welllog_plot_all.eps", width=16, height=9)
+# welllog_plot_all
+# dev.off()
+
+
+
+
+
+
+
+
+
+
+
+

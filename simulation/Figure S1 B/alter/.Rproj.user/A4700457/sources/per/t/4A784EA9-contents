@@ -1,0 +1,151 @@
+#####functions#####
+####high dimension mean####
+#rank mean
+###dimensionality reduction 
+main_mean_fun <- function(i, alpha0, error_type){
+  library(MASS)
+  library(glmnet)
+  #library(InspectChangepoint)
+  
+  #data generation
+  #set.seed(202408002+8*i)
+  if(error_type=="Gaussian"){
+    error1 <- mvrnorm(n1, rep(0,p), Sigma_error)
+    error2 <- mvrnorm(n2, rep(0,p), Sigma_error)
+    error_cal <- mvrnorm(2, rep(0,p), Sigma_error)
+  }else if(error_type=="Cauchy"){
+    error1 <- matrix( rcauchy(n1*p,0,1/5), n1,p)
+    error2 <- matrix( rcauchy(n2*p,0,1/5), n2,p)  
+    error_cal <- matrix( rcauchy(2*p,0,1/5), 2,p) 
+  }else if(error_type=="t"){
+    error1 <- matrix( rt(n1*p,3)/3, n1, p)
+    error2 <- matrix( rt(n2*p,3)/3, n2, p)
+    error_cal <- matrix( rt(2*p,3)/3, 2, p)
+  }else if(error_type=="lognormal"){   #mean 0
+    error1 <- matrix( 5*rlnorm(n1*p,0,1/10), n1, p) - 5
+    error2 <- matrix( 5*rlnorm(n2*p,0,1/10), n2, p) - 5
+    error_cal <- matrix( 5*rlnorm(2*p,0,1/10), 2, p) - 5
+  }
+  error1 <- t(error1) #p x n
+  error2 <- t(error2)
+  error_cal <- t(error_cal)
+  
+  y1 <- mu0 + error1
+  y2 <- mu1 + error2
+  y <- cbind(y1,y2) 
+  n <- n1+n2
+  
+  y_cal <- cbind(mu0,mu1) + error_cal
+
+  ###---reduce dimension---
+  y_bar <- rowMeans(y)
+  if(floor(p/25)>(2*s0)){
+    select_var_thre <- sort(abs(y_bar),decreasing = T)[2*s0]  
+  }else{
+    select_var_thre <- sort(abs(y_bar),decreasing = T)[floor(p/25)]  
+  }
+  select_var <- which(abs(y_bar)>=select_var_thre)
+  #update y
+  y <- y[select_var,]  #p0 x n
+  y_cal <- y_cal[select_var,]
+  
+  ###---kmeans---
+  mu_kmeans <- function(y, mu1_initial, mu2_initial){
+    # y: n x p
+    mu_update <- function(y,mu1_k,mu2_k){
+      #kth clustering
+      mu1_k = matrix(rep(mu1_k,n),nrow = n,byrow = T)
+      mu2_k = matrix(rep(mu2_k,n),nrow = n,byrow = T)
+      gi <- -(( rowSums((y - mu1_k)^2) <= rowSums((y - mu2_k)^2)) - 2)
+      #gi <- -(( rowSums(abs(y - mu1_k)) <= rowSums(abs(y - mu2_k))) - 2)
+      
+      
+      #update mu
+      index_1 <- which(gi==1)
+      index_2 <- which(gi==2)
+      mu1_update <- colMeans(y[index_1,])
+      mu2_update <- colMeans(y[index_2,])
+      
+      result <- list(mu1_update = mu1_update, mu2_update = mu2_update, gi=gi)
+      return(result)
+    }
+    
+    n <- dim(y)[1]
+    #mu1_initial <- y[1,]
+    #mu2_initial <- y[n,]
+    
+    #update mu estimator
+    iter_num = 20
+    iter_rho = 0.1
+    for (kk in 1:iter_num) {
+      if(kk==1){
+        mu1_new = mu1_initial
+        mu2_new = mu2_initial
+        mu_result <- mu_update(y,mu1_new,mu2_new)
+        mu1_old <- mu1_new
+        mu2_old <- mu2_new
+        mu1_new = mu_result$mu1_update
+        mu2_new = mu_result$mu2_update
+      }
+      else{
+        mu_result <- mu_update(y,mu1_new,mu2_new)
+        mu1_old <- mu1_new
+        mu2_old <- mu2_new
+        mu1_new = mu_result$mu1_update
+        mu2_new = mu_result$mu2_update
+        if((norm(as.matrix(as.numeric(mu1_new - mu1_old)),"F")/(norm(as.matrix(mu1_old),"F")) < iter_rho) &&
+           (norm(as.matrix(as.numeric(mu2_new - mu2_old)),"F")/(norm(as.matrix(mu2_old),"F")) < iter_rho) ){
+          #print(kk)
+          break
+        }
+      }
+    }
+    
+    gi <- mu_result$gi
+    #return(gi)
+    return(list(mu1_new=mu1_new,mu2_new=mu2_new,gi=gi))
+  }
+  #kmeans_result <- mu_kmeans(t(y), mu1_initial = y[,1], mu2_initial = y[,n])
+  kmeans_result <- mu_kmeans(t(y), mu1_initial = y_cal[,1], mu2_initial = y_cal[,2])
+  #kmeans_result <- mu_kmeans(t(y), mu1_initial = rep(0,dim(y)[1]), mu2_initial = rep(1,dim(y)[1]))
+  
+  
+  #kmeans_result <- kmeans(t(y),centers = 2)$cluster
+  #kmeans_result <- kmeans(t(y),centers = rbind(y_cal[,1],y_cal[,2]), iter.max = 20)$cluster
+  
+  ###---score ---
+  score <- kmeans_result$gi 
+  rank_score <- rank(score,ties.method = "random")
+  Sn <- max(
+    sapply((0.2*n):(0.8*n), function(i){
+      #abs( mean(rank_score[1:i]) - mean(rank_score[(i+1):n]) )
+      abs(sum(rank_score[1:i]) - i*mean(rank_score))
+    })
+  )
+  
+  ###---threshold for rejection---
+  #B=500
+  Sn_B <- rep(0,B)
+  for (bb in 1:B) {
+    rank_bb <- rank(runif(n,0,1), ties.method = "random")
+    Sn_bb <- max(
+      sapply((0.2*n):(0.8*n), function(i){
+        #abs( mean(rank_bb[1:i]) - mean(rank_bb[(i+1):n]) )
+        abs(sum(rank_bb[1:i]) - i*mean(rank_bb))
+      })
+    )
+    Sn_B[bb] <- Sn_bb
+  }
+  
+  p_value <- (sum(Sn < Sn_B) + runif(1,0,1) * (sum((Sn == Sn_B)+0)+1) ) / (B+1)
+  
+  if(p_value < alpha0){
+    rejection <- 1
+  }else{
+    rejection <- 0
+  }
+  
+  result_list <- list(p_value = p_value, rejection = rejection)
+  return(result_list)
+}
+

@@ -1,0 +1,72 @@
+######setting######
+library(MASS)
+library(glmnet)
+
+set.seed(20240801)
+
+#c=1
+p=100
+s0=3
+mu0 = rep(0,p)
+mu1 = rep(0,p)
+index <- sample(c(1:p),s0)
+index <- sort(index)
+#mu1[index] = sample(c(1,-1),1) * runif(s0, min=0.5, max = 1)*c
+mu1[index] = rep(1,s0)*c
+
+
+# Sigma_error = matrix(0,p,p)
+# rho = 0.2
+# for (i_pos in 1:p) {
+#   for (j_pos in 1:p) {
+#     Sigma_error[i_pos,j_pos] = rho^(abs(i_pos-j_pos))
+#   }
+# }
+
+Sigma_error = diag(0.25, p)
+
+
+# #compound symmetry structure
+# Sigma_com = matrix(0,p,p)
+# rho = 0.1
+# for (i_pos in 1:p) {
+#   for (j_pos in 1:p) {
+#     Sigma_com[i_pos,j_pos] = rho
+#   }
+# }
+# diag(Sigma_com) <- 1
+# 
+# 
+# #diagonal Toeplitz covariance matrix
+# Sigma_Teop<-diag(1,p,p)
+# p_b<-p/5
+# Sig_block<-diag(1,p_b,p_b)
+# for (i in 1:(p_b-1)) {
+#   for (j in (i+1):p_b) {
+#     Sig_block[i,j]<-(p_b-abs(i-j)-1)/(p_b-1)*rho
+#   }
+# }
+# Sig_block<-Sig_block+t(Sig_block)
+# diag(Sig_block)<-1
+# for (b in 1:5) {
+#   Sigma_Teop[((b-1)*p_b+1):(b*p_b),((b-1)*p_b+1):(b*p_b)]<-Sig_block
+# }
+# 
+# 
+# 
+# Sigma1 = matrix(0,p,p)
+# rho = 0.5
+# for (i_pos in 1:p) {
+#   for (j_pos in 1:p) {
+#     Sigma1[i_pos,j_pos] = rho^(abs(i_pos-j_pos))
+#   }
+# }
+# 
+# Sigma2 = diag(1,p)
+
+
+
+
+
+
+
