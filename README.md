@@ -3,7 +3,7 @@ Distribution-free and model-agnostic framework for changepoint detection propose
 
 ## Contents
 
-- **/simulation**: This folder contains all the code used for simulation in Section 4.1 and Section S.3 .
+- **/simulation**: This folder contains all the code used for simulation in Section 4.1 and Section S.3.
 - **/real-data**: This folder contains all the code used for real-data analysis in Section 4.2 and Section S.3.
   #### Data availability:
   - Well-log dataset: https://search.r-project.org/CRAN/refmans/changepoint.influence/html/welldata.html
